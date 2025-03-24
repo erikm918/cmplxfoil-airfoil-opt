@@ -17,10 +17,10 @@ from cmplxfoil import CMPLXFOIL, AnimateAirfoilOpt
 #         Specify parameters for optimization
 # ======================================================================
 # rst params (beg)
-mycl = 0.5  # lift coefficient constraint
-alpha = 0.0 if mycl == 0.0 else 1.0  # initial angle of attack (zero if the target cl is zero)
+mycl = 0.6  # lift coefficient constraint
+alpha = 0.0 if mycl == 0.0 else 3.0  # initial angle of attack (zero if the target cl is zero)
 mach = 0.1  # Mach number
-Re = 1e6  # Reynolds number
+Re = 200000.  # Reynolds number
 T = 288.15  # 1976 US Standard Atmosphere temperature @ sea level (K)
 # rst params (end)
 
@@ -108,7 +108,7 @@ wingtipSpacing = 0.1
 leList = [[le, 0, wingtipSpacing], [le, 0, 1.0 - wingtipSpacing]]
 teList = [[1.0 - le, 0, wingtipSpacing], [1.0 - le, 0, 1.0 - wingtipSpacing]]
 DVCon.addVolumeConstraint(leList, teList, 2, 100, lower=0.85, scaled=True)
-DVCon.addThicknessConstraints2D(leList, teList, 2, 100, lower=0.25, scaled=True)
+DVCon.addThicknessConstraints2D(leList, teList, 2, 100, lower=0.1, scaled=True)
 le = 0.01
 leList = [[le, 0, wingtipSpacing], [le, 0, 1.0 - wingtipSpacing]]
 DVCon.addLERadiusConstraints(leList, 2, axis=[0, 1, 0], chordDir=[-1, 0, 0], lower=0.85, scaled=True)
@@ -228,7 +228,7 @@ if MPI.COMM_WORLD.rank == 0:
 CFDSolver.airfoilAxs[1].legend(["Original", "Optimized"], labelcolor="linecolor")
 CFDSolver.airfoilFig.savefig(os.path.join(outputDir, "OptFoil.pdf"))
 
-# Animate the optimization
+# # Animate the optimization
 AnimateAirfoilOpt(outputDir, "fc").animate(
     outputFileName=os.path.join(outputDir, "OptFoil"), fps=10, dpi=300, extra_args=["-vcodec", "libx264"]
 )
