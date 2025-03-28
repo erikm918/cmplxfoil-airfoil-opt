@@ -10,6 +10,7 @@ from pygeo import DVConstraints, DVGeometryCST
 from pyoptsparse import Optimization, OPT
 from multipoint import multiPointSparse
 from cmplxfoil import CMPLXFOIL, AnimateAirfoilOpt
+import AeroSolver as AS
 
 # rst imports (end)
 
@@ -22,6 +23,8 @@ alpha = 0.0 if mycl == 0.0 else 3.0  # initial angle of attack (zero if the targ
 mach = 0.1  # Mach number
 Re = 200000.  # Reynolds number
 T = 288.15  # 1976 US Standard Atmosphere temperature @ sea level (K)
+
+solver = AS.AeroSolver("naca0012.dat",Re,alpha,mycl)
 # rst params (end)
 
 # ======================================================================
@@ -31,76 +34,10 @@ T = 288.15  # 1976 US Standard Atmosphere temperature @ sea level (K)
 MP = multiPointSparse(MPI.COMM_WORLD)
 MP.addProcessorSet("cruise", nMembers=1, memberSizes=MPI.COMM_WORLD.size)
 MP.createCommunicators()
-# rst procs (end)
 
-# ======================================================================
-#         Create output directory
-# ======================================================================
-# rst dir (beg)
-curDir = os.path.abspath(os.path.dirname(__file__))
-outputDir = os.path.join(curDir, "output")
-
-if not os.path.exists(outputDir):
-    os.mkdir(outputDir)
-# rst dir (end)
-
-# ======================================================================
-#         CFD solver set-up
-# ======================================================================
-# rst solver (beg)
-aeroOptions = {
-    "writeSolution": True,
-    "writeSliceFile": True,
-    "writeCoordinates": True,
-    "plotAirfoil": True,
-    "outputDirectory": outputDir,
-}
-
-# Create solver
-CFDSolver = CMPLXFOIL(os.path.join(curDir, "naca0012.dat"), options=aeroOptions)
-# rst solver (end)
-
-# ======================================================================
-#         Set up flow conditions with AeroProblem
-# ======================================================================
-# rst ap (beg)
-ap = AeroProblem(
-    name="fc",
-    alpha=alpha if mycl != 0.0 else 0.0,
-    mach=mach,
-    reynolds=Re,
-    reynoldsLength=1.0,
-    T=T,
-    areaRef=1.0,
-    chordRef=1.0,
-    evalFuncs=["cl", "cd"],
-)
-# Add angle of attack variable
-if mycl != 0.0:
-    ap.addDV("alpha", value=ap.alpha, lower=-10.0, upper=10.0, scale=1.0)
-# rst ap (end)
-
-# ======================================================================
-#         Geometric Design Variable Set-up
-# ======================================================================
-# rst geom (beg)
-nCoeff = 4  # number of CST coefficients on each surface
-DVGeo = DVGeometryCST(os.path.join(curDir, "naca0012.dat"), numCST=nCoeff)
-
-DVGeo.addDV("upper_shape", dvType="upper", lowerBound=-0.1, upperBound=0.5)
-DVGeo.addDV("lower_shape", dvType="lower", lowerBound=-0.5, upperBound=0.1)
-
-# Add DVGeo object to CFD solver
-CFDSolver.setDVGeo(DVGeo)
-# rst geom (end)
-
-# ======================================================================
-#         DVConstraint Setup
-# ======================================================================
-# rst cons (beg)
 DVCon = DVConstraints()
-DVCon.setDVGeo(DVGeo)
-DVCon.setSurface(CFDSolver.getTriangulatedMeshSurface())
+DVCon.setDVGeo(solver.dvGeo)
+DVCon.setSurface(solver.CFDSolver.getTriangulatedMeshSurface())
 
 # Thickness, volume, and leading edge radius constraints
 le = 0.0001

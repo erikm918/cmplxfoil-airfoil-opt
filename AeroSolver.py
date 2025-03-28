@@ -19,7 +19,9 @@ def objCon(funcs, printOK):
     pass
 
 class AeroSolver:
-    def __init__(self, airfoil, Re, alpha, clObj, T=288.15, M=0.1, output_dir="output"):
+    def __init__(self, airfoil, Re, alpha, clObj, T=288.15, M=0.1, output_dir="output"): 
+        #airfoil: string filename. Re: int. Alpha: int. cl0bj: Int.
+
         # Initialize free-stream conditions
         self.airfoil = airfoil
         self.Re = Re
