@@ -20,8 +20,6 @@ def objCon(funcs, printOK):
 
 class AeroSolver:
     def __init__(self, airfoil, Re, alpha, clObj, T=288.15, M=0.1, output_dir="output"): 
-        #airfoil: string filename. Re: int. Alpha: int. cl0bj: Int.
-
         # Initialize free-stream conditions
         self.airfoil = airfoil
         self.Re = Re
@@ -43,9 +41,9 @@ class AeroSolver:
         self._set_geom()
         
         # Input aerodynamic problem into CMPLXFOIL
-        self.solver(self.aero_problem)
+        self.CFDSolver(self.aero_problem)
         # Input geomtry to CMPLXFOIL
-        self.solver.setDVGeo(self.dvGeo)
+        self.CFDSolver.setDVGeo(self.dvGeo)
         
     # Define aerodynamic probelm from baseClasses
     def _init_aero(self):
@@ -73,7 +71,7 @@ class AeroSolver:
         }
         
         # CMPLXFOIL solver
-        self.solver = CMPLXFOIL(self.airfoil, self.solver_options)
+        self.CFDSolver = CMPLXFOIL(self.airfoil, self.solver_options)
     
     # Define geometry with pyGeo
     def _set_geom(self):
@@ -88,11 +86,8 @@ class AeroSolver:
     def solvePrimal(self):
         funcs = {}
         # Set functions we want to evaluate
-        self.solver.evalFunctions(self.aero_problem, funcs=funcs)
+        self.CFDSolver.evalFunctions(self.aero_problem, funcs=funcs)
         # Make sure CMPLXFOIL doesn't break
-        self.solver.checkSolutionFailure(self.aero_problem, funcs=funcs)
+        self.CFDSolver.checkSolutionFailure(self.aero_problem, funcs=funcs)
 
         return funcs
-    
-test = AeroSolver("naca0012.dat", 200000., 3., 0.6)
-test.solvePrimal()
