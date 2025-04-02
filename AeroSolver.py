@@ -7,17 +7,6 @@ from multipoint import multiPointSparse
 from pygeo import DVGeometryCST
 from mpi4py import MPI
 
-# Multipoint function definitiions
-# I don't think we need these here (maybe not at all)
-def cruiseFuncs(x):
-    pass
-
-def cruiseFuncsSens(x, funcs):
-    pass
-
-def objCon(funcs, printOK):
-    pass
-
 class AeroSolver:
     def __init__(self, airfoil, Re, alpha, clObj, T=288.15, M=0.06, output_dir="output"): 
         # Initialize free-stream conditions
@@ -44,6 +33,7 @@ class AeroSolver:
         self.CFDSolver(self.aero_problem)
         # Input geomtry to CMPLXFOIL
         self.CFDSolver.setDVGeo(self.dvGeo)
+        print(self.dvGeo.getValues())
         
     # Define aerodynamic probelm from baseClasses
     def _init_aero(self):
@@ -89,5 +79,19 @@ class AeroSolver:
         self.CFDSolver.evalFunctions(self.aero_problem, funcs=funcs)
         # Make sure CMPLXFOIL doesn't break
         self.CFDSolver.checkSolutionFailure(self.aero_problem, funcs=funcs)
-
+        
         return funcs
+        
+    def findFunctionSens(self):
+        func_sens = {}
+        self.CFDSolver.evalFunctionsSens(self.aero_problem, func_sens)
+        
+        return func_sens
+    
+    def updateCSTCoeff(self, new_CST):
+        self.dvGeo.setDesignVars(
+            {
+                "upper_shape": np.array([new_CST[0], new_CST[1], new_CST[2], new_CST[3]]),
+                "lower_shape": np.array([new_CST[4], new_CST[5], new_CST[6], new_CST[7]]),
+            }
+        )

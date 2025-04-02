@@ -98,8 +98,9 @@ def objCon(funcs, printOK):
     funcs["cl_con_" + solver.aero_problem.name] = funcs[solver.aero_problem["cl"]] - mycl
     if printOK:
         print("funcs in obj:", funcs)
+    
+    print(f"CST Coefficients: {solver.dvGeo.getValues()}")
     return funcs
-
 
 # rst funcs (end)
 
