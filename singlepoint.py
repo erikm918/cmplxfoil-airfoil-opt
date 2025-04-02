@@ -18,9 +18,9 @@ import AeroSolver as AS
 #         Specify parameters for optimization
 # ======================================================================
 # rst params (beg)
-mycl = 0.6  # lift coefficient constraint
-alpha = 0.0 if mycl == 0.0 else 3.0  # initial angle of attack (zero if the target cl is zero)
-mach = 0.1  # Mach number
+mycl = 0.5  # lift coefficient constraint
+alpha = 3.0  # initial angle of attack (zero if the target cl is zero)
+mach = 0.06  # Mach number
 Re = 200000.  # Reynolds number
 T = 288.15  # 1976 US Standard Atmosphere temperature @ sea level (K)
 
@@ -50,7 +50,7 @@ le = 0.01
 leList = [[le, 0, wingtipSpacing], [le, 0, 1.0 - wingtipSpacing]]
 DVCon.addLERadiusConstraints(leList, 2, axis=[0, 1, 0], chordDir=[-1, 0, 0], lower=0.85, scaled=True)
 
-fileName = os.path.join(outputDir, "constraints.dat")
+fileName = os.path.join(solver.output_dir, "constraints.dat")
 DVCon.writeTecplot(fileName)
 # rst cons (end)
 
@@ -62,15 +62,15 @@ DVCon.writeTecplot(fileName)
 def cruiseFuncs(x):
     print(x)
     # Set design vars
-    DVGeo.setDesignVars(x)
-    ap.setDesignVars(x)
+    solver.CFDSolver.DVGeo.setDesignVars(x)
+    solver.aero_problem.setDesignVars(x)
     # Run CFD
-    CFDSolver(ap)
+    solver.CFDSolver(solver.aero_problem)
     # Evaluate functions
     funcs = {}
     DVCon.evalFunctions(funcs)
-    CFDSolver.evalFunctions(ap, funcs)
-    CFDSolver.checkSolutionFailure(ap, funcs)
+    solver.CFDSolver.evalFunctions(solver.aero_problem, funcs)
+    solver.CFDSolver.checkSolutionFailure(solver.aero_problem, funcs)
     if MPI.COMM_WORLD.rank == 0:
         print("functions:")
         for key, val in funcs.items():
@@ -83,8 +83,8 @@ def cruiseFuncs(x):
 def cruiseFuncsSens(x, funcs):
     funcsSens = {}
     DVCon.evalFunctionsSens(funcsSens)
-    CFDSolver.evalFunctionsSens(ap, funcsSens)
-    CFDSolver.checkAdjointFailure(ap, funcsSens)
+    solver.CFDSolver.evalFunctionsSens(solver.aero_problem, funcsSens)
+    solver.CFDSolver.checkAdjointFailure(solver.aero_problem, funcsSens)
     print("function sensitivities:")
     evalFunc = ["fc_cd", "fc_cl", "fail"]
     for var in evalFunc:
@@ -94,8 +94,8 @@ def cruiseFuncsSens(x, funcs):
 
 def objCon(funcs, printOK):
     # Assemble the objective and any additional constraints:
-    funcs["obj"] = funcs[ap["cd"]]
-    funcs["cl_con_" + ap.name] = funcs[ap["cl"]] - mycl
+    funcs["obj"] = funcs[solver.aero_problem["cd"]]
+    funcs["cl_con_" + solver.aero_problem.name] = funcs[solver.aero_problem["cl"]] - mycl
     if printOK:
         print("funcs in obj:", funcs)
     return funcs
@@ -114,20 +114,20 @@ optProb = Optimization("opt", MP.obj)
 optProb.addObj("obj", scale=1e4)
 
 # Add variables from the AeroProblem
-ap.addVariablesPyOpt(optProb)
+solver.aero_problem.addVariablesPyOpt(optProb)
 
 # Add DVGeo variables
-DVGeo.addVariablesPyOpt(optProb)
+solver.dvGeo.addVariablesPyOpt(optProb)
 
 # Add constraints
 DVCon.addConstraintsPyOpt(optProb)
 
 # Add cl constraint
-optProb.addCon("cl_con_" + ap.name, lower=0.0, upper=0.0, scale=1.0)
+optProb.addCon("cl_con_" + solver.aero_problem.name, lower=0.0, upper=0.0, scale=1.0)
 
 # Enforce first upper and lower CST coefficients to add to zero
 # to maintain continuity at the leading edge
-jac = np.zeros((1, nCoeff), dtype=float)
+jac = np.zeros((1, solver.nCoeff), dtype=float)
 jac[0, 0] = 1.0
 optProb.addCon(
     "first_cst_coeff_match",
@@ -150,9 +150,9 @@ optProb.getDVConIndex()
 
 # rst opt (beg)
 # Run optimization
-optOptions = {"IFILE": os.path.join(outputDir, "SLSQP.out")}
+optOptions = {"IFILE": os.path.join(solver.output_dir, "SLSQP.out")}
 opt = OPT("SLSQP", options=optOptions)
-sol = opt(optProb, MP.sens, storeHistory=os.path.join(outputDir, "opt.hst"))
+sol = opt(optProb, MP.sens, storeHistory=os.path.join(solver.output_dir, "opt.hst"))
 if MPI.COMM_WORLD.rank == 0:
     print(sol)
 # rst opt (end)
@@ -162,11 +162,11 @@ if MPI.COMM_WORLD.rank == 0:
 # ======================================================================
 # rst postprocessing (beg)
 # Save the final figure
-CFDSolver.airfoilAxs[1].legend(["Original", "Optimized"], labelcolor="linecolor")
-CFDSolver.airfoilFig.savefig(os.path.join(outputDir, "OptFoil.pdf"))
+solver.CFDSolver.airfoilAxs[1].legend(["Original", "Optimized"], labelcolor="linecolor")
+solver.CFDSolver.airfoilFig.savefig(os.path.join(solver.output_dir, "OptFoil.pdf"))
 
 # # Animate the optimization
-AnimateAirfoilOpt(outputDir, "fc").animate(
-    outputFileName=os.path.join(outputDir, "OptFoil"), fps=10, dpi=300, extra_args=["-vcodec", "libx264"]
+AnimateAirfoilOpt(solver.output_dir, "fc").animate(
+    outputFileName=os.path.join(solver.output_dir, "OptFoil"), fps=10, dpi=300, extra_args=["-vcodec", "libx264"]
 )
 # rst postprocessing (end)
