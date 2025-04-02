@@ -19,7 +19,7 @@ def objCon(funcs, printOK):
     pass
 
 class AeroSolver:
-    def __init__(self, airfoil, Re, alpha, clObj, T=288.15, M=0.1, output_dir="output"): 
+    def __init__(self, airfoil, Re, alpha, clObj, T=288.15, M=0.06, output_dir="output"): 
         # Initialize free-stream conditions
         self.airfoil = airfoil
         self.Re = Re
@@ -52,7 +52,7 @@ class AeroSolver:
             alpha=self.alpha,
             mach=self.M,
             reynolds=self.Re,
-            reynoldsLength=0.15, # if something breaks i changed this from 1 to 0.15
+            reynoldsLength=1, # if something breaks i changed this from 1 to 0.15
             T=self.T,
             areaRef=1.0,
             chordRef=1.0,
@@ -76,9 +76,9 @@ class AeroSolver:
     # Define geometry with pyGeo
     def _set_geom(self):
         # Number of CST coefficients
-        nCoeff = 4
+        self.nCoeff = 4
         # Airfoil geometry
-        self.dvGeo = DVGeometryCST(self.airfoil, numCST=nCoeff)
+        self.dvGeo = DVGeometryCST(self.airfoil, numCST=self.nCoeff)
         
         self.dvGeo.addDV("upper_shape", dvType="upper", lowerBound=-0.1, upperBound=0.5)
         self.dvGeo.addDV("lower_shape", dvType="lower", lowerBound=-0.5, upperBound=0.1)
