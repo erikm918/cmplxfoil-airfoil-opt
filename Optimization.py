@@ -48,6 +48,19 @@ class Optimization:
         res = minimize(self.cd, self.solver.getValuesNp(), method = "SLSQP", jac=self.cd_grad,
                constraints=self.constraints, tol=1e-6,
                bounds=bounds,callback = callback)
+    def trustcr(self,bounds):
+        def callback(cst):
+            pass #add stuff here
+        res = minimize(self.cd, self.solver.getValuesNp(), method = "trust-constr", jac=self.cd_grad,
+            constraints=self.constraints, tol=1e-6,
+            bounds=bounds,callback = callback)
+    def cobyqa(self,bounds):
+        def callback(cst):
+            pass #add stuff here
+        res = minimize(self.cd, self.solver.getValuesNp(), method = "COBYQA",
+            constraints=self.constraints, tol=1e-6,
+            bounds=bounds,callback = callback)
+
 
         
         
