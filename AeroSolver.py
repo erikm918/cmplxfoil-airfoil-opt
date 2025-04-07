@@ -63,7 +63,7 @@ class AeroSolver:
         # CMPLXFOIL solver
         self.CFDSolver = CMPLXFOIL(self.airfoil, self.solver_options)
     
-    # Define geometry with pyGeo
+    # get geometry with pyGeo
     def _set_geom(self):
         # Number of CST coefficients
         self.nCoeff = 4
@@ -95,3 +95,7 @@ class AeroSolver:
                 "lower_shape": np.array([new_CST[4], new_CST[5], new_CST[6], new_CST[7]]),
             }
         )
+    def getValuesNp(self):
+        cstdict = self.dvGeo.getValues()
+        listcst = list(cstdict["upper_shape"]) + list(cstdict["lower_shape"])
+        return np.array(listcst)
