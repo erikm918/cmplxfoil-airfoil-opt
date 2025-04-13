@@ -73,6 +73,8 @@ class AeroSolver:
         self.dvGeo.addDV("upper_shape", dvType="upper", lowerBound=-0.1, upperBound=0.5)
         self.dvGeo.addDV("lower_shape", dvType="lower", lowerBound=-0.5, upperBound=0.1)
         
+        self.dvGeo.addPointSet(np.loadtxt(self.airfoil), 'airfoilPoints')
+    
     def solvePrimal(self):
         funcs = {}
         # Set functions we want to evaluate
@@ -88,13 +90,25 @@ class AeroSolver:
         
         return func_sens
     
-    def updateCSTCoeff(self, new_CST):
+    def updateCSTCoeff(self, new_CST, new_airfoil='updated_airfoil.dat'):
         self.dvGeo.setDesignVars(
             {
                 "upper_shape": np.array([new_CST[0], new_CST[1], new_CST[2], new_CST[3]]),
                 "lower_shape": np.array([new_CST[4], new_CST[5], new_CST[6], new_CST[7]]),
             }
         )
+        
+        self.dvGeo.update('airfoilPoints')
+        self.dvGeo.update('cmplxfoil_fc_coords')
+        
+        updated_points = self.dvGeo.points.get('airfoilPoints')
+        np.savetxt(new_airfoil, updated_points['points'])
+
+        # Re-initialize CMPLXFOIL with the updated geometry
+        self.CFDSolver = CMPLXFOIL(new_airfoil, self.solver_options)
+        self.CFDSolver(self.aero_problem)
+        self.CFDSolver.setDVGeo(self.dvGeo)
+
     def getValuesNp(self):
         cstdict = self.dvGeo.getValues()
         listcst = list(cstdict["upper_shape"]) + list(cstdict["lower_shape"])
