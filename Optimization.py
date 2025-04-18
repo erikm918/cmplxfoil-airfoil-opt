@@ -1,9 +1,6 @@
 from scipy.optimize import minimize
 import numpy as np
 
-
-
-
 class Optimization:
     def __init__(self,solver):
         self.solver = solver
@@ -45,12 +42,17 @@ class Optimization:
             for con in self.constraints:
                 print(cst)
                 print(f"Constraint: {con['fun'](cst)}. Func:{self.cd(cst)}")
+                
         res = minimize(self.cd, self.solver.getValuesNp(), method = "SLSQP", jac=self.cd_grad,
                constraints=self.constraints, tol=1e-6,
                bounds=bounds,callback = callback)
     def trustcr(self,bounds):
-        def callback(cst):
-            pass #add stuff here
+        def callback(cst, state):
+            self.log.append(cst)
+            for con in self.constraints:
+                print(cst)
+                print(f"Constraint: {con['fun'](cst)}. Func:{self.cd(cst)}")
+            
         res = minimize(self.cd, self.solver.getValuesNp(), method = "trust-constr", jac=self.cd_grad,
             constraints=self.constraints, tol=1e-6,
             bounds=bounds,callback = callback)
@@ -60,9 +62,3 @@ class Optimization:
         res = minimize(self.cd, self.solver.getValuesNp(), method = "COBYQA",
             constraints=self.constraints, tol=1e-6,
             bounds=bounds,callback = callback)
-
-
-        
-        
-
-        
