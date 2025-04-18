@@ -74,7 +74,7 @@ class AeroSolver:
         self.DVGeo.addDV("upper_shape", dvType="upper", lowerBound=-0.1, upperBound=0.5)
         self.DVGeo.addDV("lower_shape", dvType="lower", lowerBound=-0.5, upperBound=0.1)
         
-        # 
+        # List of points used to determine airfoil
         self.DVGeo.addPointSet(np.loadtxt(self.airfoil), 'airfoilPoints')
     
     def _init_dvcon(self):
@@ -82,15 +82,17 @@ class AeroSolver:
         self.DVCon.setDVGeo(self.DVGeo)
         self.DVCon.setSurface(self.CFDSolver.getTriangulatedMeshSurface())
 
-        # Thickness, volume, and leading edge radius constraints
+        # Thickness constraint
         le = 0.0001
         wingtipSpacing = 0.1
         leList = [[le, 0, wingtipSpacing], [le, 0, 1.0 - wingtipSpacing]]
         teList = [[1.0 - le, 0, wingtipSpacing], [1.0 - le, 0, 1.0 - wingtipSpacing]]
-        self.DVCon.addThicknessConstraints2D(leList, teList, 2, 100, lower=0.1, scaled=True)
+        self.DVCon.addThicknessConstraints2D(leList, teList, 2, 100, lower=0.25, scaled=True)
+        
+        # Leading edge radius constraint
         le = 0.01
         leList = [[le, 0, wingtipSpacing], [le, 0, 1.0 - wingtipSpacing]]
-        self.DVCon.addLERadiusConstraints(leList, 2, axis=[0, 1, 0], chordDir=[-1, 0, 0], lower=0.85, scaled=True)
+        self.DVCon.addLERadiusConstraints(leList, 2, axis=[0, 1, 0], chordDir=[-1, 0, 0], lower=0.75, scaled=True)
     
     def solvePrimal(self):
         funcs = {}
@@ -169,8 +171,8 @@ class AeroSolver:
         le_sens_lower = cons_sens['DVCon1_leradius_constraints_0']['lower_shape']
         
         # Combining our sensitivities
-        thickness_sens = np.concatenate((thickness_sens_upper.flatten(), thickness_sens_lower.flatten()))
-        le_sens = np.concatenate((le_sens_upper.flatten(), le_sens_lower.flatten()))
+        thickness_sens = np.concatenate((thickness_sens_upper, thickness_sens_lower), axis=1)
+        le_sens = np.concatenate((le_sens_upper, le_sens_lower), axis=1)
         
         return thickness_sens, le_sens
 
