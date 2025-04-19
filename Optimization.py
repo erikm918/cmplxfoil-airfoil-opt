@@ -93,6 +93,7 @@ class Optimization:
     def slsqp(self, bounds): #bounds must be Bounds object
         def callback(cst):
             self.log.append(cst)
+            print(f"Cl: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
             #for con in self.constraints:
             #    print(cst)
             #    print(f"Constraint: {con['fun'](cst)}. Func:{self.cd(cst)}")

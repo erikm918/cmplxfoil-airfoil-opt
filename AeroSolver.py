@@ -104,13 +104,13 @@ class AeroSolver:
         self.CFDSolver.evalFunctions(self.aero_problem, funcs=funcs)
         # Make sure CMPLXFOIL doesn't break
         self.CFDSolver.checkSolutionFailure(self.aero_problem, funcs=funcs)
-        
+        self.funcs = funcs
         return funcs
         
     def findFunctionSens(self):
         func_sens = {}
         self.CFDSolver.evalFunctionsSens(self.aero_problem, func_sens)
-        
+        self.func_sens = func_sens
         return func_sens
     
     def updateCSTCoeff(self, new_CST, new_airfoil='updated_airfoil.dat'):
