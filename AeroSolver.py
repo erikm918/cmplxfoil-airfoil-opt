@@ -110,6 +110,7 @@ class AeroSolver:
         return func_sens
     
     def updateCSTCoeff(self, new_CST, new_airfoil='updated_airfoil.dat'):
+        # Define new CST coefficients
         self.DVGeo.setDesignVars(
             {
                 "upper_shape": np.array([new_CST[0], new_CST[1], new_CST[2], new_CST[3]]),
@@ -117,8 +118,10 @@ class AeroSolver:
             }
         )
         
+        # Update airfoil pointset to update our shape for CMPLXFOIL
         self.DVGeo.update('airfoilPoints')
         
+        # Save airfoil as .dat file
         updated_points = self.DVGeo.points.get('airfoilPoints')
         np.savetxt(new_airfoil, updated_points['points'])
 
