@@ -1,5 +1,8 @@
 from scipy.optimize import minimize
 import numpy as np
+import pandas as pd
+import os
+import shutil
 
 from AeroSolver import AeroSolver
 
@@ -9,7 +12,13 @@ class Optimization:
         self.constraints = []
         self.log = []
         self.add_geom_con()
-    
+        self.iters = 0
+        if not os.path.exists("Results"):
+            os.mkdir("Results")
+            os.mkdir("Results/SLSQP")
+            os.mkdir("Results/TRUSTCR")
+            os.mkdir("Results/AUGLAG")
+            os.mkdir("Results/SINGLEPOINT")
     def update(self,cst):
         if np.all(self.solver.getValuesNp() == cst):
             pass
@@ -85,17 +94,24 @@ class Optimization:
             def jac(cst,index=it):
                 return self.radius_grad(cst)[index,:]
             self.add_con(func,jac,'ineq')
-    
+
+    def results_df(self,cst):
+        cl = self.cl(cst)
+        cd = self.cd(cst)
+        dict_results = {"Cl": cl,"Cd": cd}
+        df = pd.DataFrame(dict_results,index=[self.iters])
+        return df
+
     def slsqp(self, bounds): #bounds must be Bounds object
+        df = self.results_df(self.solver.getValuesNp())
+        df.to_csv("./Results/SLSQP/outdata.csv",mode='w')
         def callback(cst):
-            self.log.append(cst)
-            print(f"Cl: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
-            #for con in self.constraints:
-             #   print(f"Constraint: {con['fun'](cst)}")   
-            #thicknesses = self.thickness(cst) 
-            #for x in range(200):
-            #    print(thicknesses[x])
-                
+            print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
+            self.iters = self.iters + 1      
+            df = self.results_df(cst)
+            df.to_csv("./Results/SLSQP/outdata.csv",header=False,mode='a')
+            shutil.copyfile("updated_airfoil.dat",f"./Results/SLSQP/airfoil_iter{self.iters}")
+
         res = minimize(self.cd, self.solver.getValuesNp(), method = "SLSQP", jac=self.cd_grad,
                constraints=self.constraints, tol=1e-6,
                bounds=bounds,callback = callback)
