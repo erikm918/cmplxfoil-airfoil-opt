@@ -105,12 +105,14 @@ class AeroSolver:
         # Make sure CMPLXFOIL doesn't break
         self.CFDSolver.checkSolutionFailure(self.aero_problem, funcs=funcs)
         self.funcs = funcs
+        
         return funcs
         
     def findFunctionSens(self):
         func_sens = {}
         self.CFDSolver.evalFunctionsSens(self.aero_problem, func_sens)
         self.func_sens = func_sens
+        
         return func_sens
     
     def updateCSTCoeff(self, new_CST, new_airfoil='updated_airfoil.dat'):
@@ -151,6 +153,7 @@ class AeroSolver:
         le_con -= min_r  # r - 0.75(r_0) >= 0
         self.thickness = thickness_con
         self.le = le_con
+        
         return thickness_con, le_con
 
     def findConSens(self):
@@ -183,9 +186,11 @@ class AeroSolver:
         le_sens = np.concatenate((le_sens_upper, le_sens_lower), axis=1)
         self.thickness_sens = thickness_sens
         self.le_sens = le_sens
+        
         return thickness_sens, le_sens
 
     def getValuesNp(self):
         cstdict = self.DVGeo.getValues()
-        listcst = list(cstdict["upper_shape"]) + list(cstdict["lower_shape"])
-        return np.array(listcst)
+        cst = np.concatenate((cstdict["upper_shape"], cstdict["lower_shape"]))
+        
+        return cst
