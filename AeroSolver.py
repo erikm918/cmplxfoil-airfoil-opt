@@ -33,6 +33,10 @@ class AeroSolver:
         self.CFDSolver(self.aero_problem)
         # Input geomtry to CMPLXFOIL
         self.CFDSolver.setDVGeo(self.DVGeo)
+        self.solvePrimal()
+        self.findFunctionSens()
+        self.findConstraint()
+        self.findConSens()
         print(self.DVGeo.getValues())
         
     # Define aerodynamic probelm from baseClasses
@@ -100,13 +104,13 @@ class AeroSolver:
         self.CFDSolver.evalFunctions(self.aero_problem, funcs=funcs)
         # Make sure CMPLXFOIL doesn't break
         self.CFDSolver.checkSolutionFailure(self.aero_problem, funcs=funcs)
-        
+        self.funcs = funcs
         return funcs
         
     def findFunctionSens(self):
         func_sens = {}
         self.CFDSolver.evalFunctionsSens(self.aero_problem, func_sens)
-        
+        self.func_sens = func_sens
         return func_sens
     
     def updateCSTCoeff(self, new_CST, new_airfoil='updated_airfoil.dat'):
@@ -145,7 +149,8 @@ class AeroSolver:
         # Return constraints in canonical form for scipy
         thickness_con -= min_t # t - 0.25(t_0) >= 0
         le_con -= min_r  # r - 0.75(r_0) >= 0
-        
+        self.thickness = thickness_con
+        self.le = le_con
         return thickness_con, le_con
 
     def findConSens(self):
@@ -176,7 +181,8 @@ class AeroSolver:
         # Combining our sensitivities
         thickness_sens = np.concatenate((thickness_sens_upper, thickness_sens_lower), axis=1)
         le_sens = np.concatenate((le_sens_upper, le_sens_lower), axis=1)
-        
+        self.thickness_sens = thickness_sens
+        self.le_sens = le_sens
         return thickness_sens, le_sens
 
     def getValuesNp(self):

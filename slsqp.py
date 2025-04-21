@@ -69,68 +69,9 @@ op_problem = op.Optimization(solver)
 
 cl_const = lambda cst: op_problem.cl(cst) - mycl #0 = clfunc - mycl. This is eq
 op_problem.add_con(cl_const,lambda cst: op_problem.cl_grad(cst),"eq")
-thickness_const = lambda cst: op_problem.thickness(cst)
-op_problem.add_con(thickness_const,lambda cst: op_problem.thickness_grad(cst),"ineq")
-radius_const = lambda cst: op_problem.radius(cst)
-op_problem.add_con(radius_const,lambda cst: op_problem.radius_grad(cst),"ineq")
 bounds = Bounds([-.1,-.1,-.1,-.1,-.5,-.5,-.5,-.5],[.5,.5,.5,.5,.1,.1,.1,.1])
 op_problem.slsqp(bounds)
-print(np.array(op_problem.log))
-
-
-
-'''
-optProb = Optimization("opt", MP.obj)
-
-# Add objective
-#optProb.addObj("obj", scale=1e4)
-
-# Add variables from the AeroProblem
-#solver.aero_problem.addVariablesPyOpt(optProb)
-
-# Add DVGeo variables
-solver.dvGeo.addVariablesPyOpt(optProb)
-
-# Add constraints
-#DVCon.addConstraintsPyOpt(optProb)
-
-# Add cl constraint
-optProb.addCon("cl_con_" + solver.aero_problem.name, lower=0.0, upper=0.0, scale=1.0)
-
-# Enforce first upper and lower CST coefficients to add to zero
-# to maintain continuity at the leading edge
-jac = np.zeros((1, solver.nCoeff), dtype=float)
-jac[0, 0] = 1.0
-optProb.addCon(
-    "first_cst_coeff_match",
-    lower=0.0,
-    upper=0.0,
-    linear=True,
-    wrt=["upper_shape", "lower_shape"],
-    jac={"upper_shape": jac, "lower_shape": jac},
-)
-
-# The MP object needs the 'obj' and 'sens' function for each proc set,
-# the optimization problem and what the objcon function is:
-MP.setProcSetObjFunc("cruise", cruiseFuncs)
-MP.setProcSetSensFunc("cruise", cruiseFuncsSens)
-MP.setObjCon(objCon)
-MP.setOptProb(optProb)
-optProb.printSparsity()
-optProb.getDVConIndex()
-# rst optprob (end)
-
-# rst opt (beg)
-# Run optimization
-optOptions = {"IFILE": os.path.join(solver.output_dir, "SLSQP.out")}
-opt = OPT("SLSQP", options=optOptions)
-sol = opt(optProb, MP.sens, storeHistory=os.path.join(solver.output_dir, "opt.hst"))
-if MPI.COMM_WORLD.rank == 0:
-    print(sol)
-# rst opt (end)
-'''
-
-
+#print(np.array(op_problem.log))
 
 # ======================================================================
 #         Postprocessing
