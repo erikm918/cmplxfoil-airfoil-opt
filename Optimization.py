@@ -12,19 +12,21 @@ class Optimization:
         self.constraints = []
         self.log = []
         self.add_geom_con()
-        self.iters = 0
-        if not os.path.exists("Results"):
+        self.iters = 0 #Iteration count 
+        if not os.path.exists("Results"): #Setting up file director
             os.mkdir("Results")
-    def update(self,cst):
-        if np.all(self.solver.getValuesNp() == cst):
+
+    def update(self,cst): #This function updates primals, etc, for use in other funcs
+        if np.all(self.solver.getValuesNp() == cst): 
             pass
-        else:
+        else: #If hasn't been updated already, then update. This prevents needless updating of primals
             self.solver.updateCSTCoeff(cst)
             self.solver.solvePrimal()
             self.solver.findFunctionSens()
             self.solver.findConstraint()
             self.solver.findConSens()
 
+    #Functions for getting cl, cd. All follow the same basic form: Updating, then grabbing the relevant data and returning it
     def cl(self,cst):
         self.update(cst)
         funcs = self.solver.funcs
@@ -71,20 +73,22 @@ class Optimization:
         grads = self.solver.le_sens
         return grads #2 by 8 
 
+    #This function adds constraints to the optimizer
     def add_con(self, func, jac, con_type): #need to pass a lambda function or some function with inputs
         constraint = {'type': con_type,
              'fun': func,
              'jac': jac}
         self.constraints.append(constraint)
     
+    #Implements thickness and geometric constraints
     def add_geom_con(self):
-        for it in range(200):
+        for it in range(200): #Thickness. The thickness command returns a 200 by 1.
             def func(cst,index=it):
                 return self.thickness(cst)[index]
             def jac(cst,index=it):
                 return self.thickness_grad(cst)[index,:]
             self.add_con(func,jac,'ineq')
-        for it in range(2):
+        for it in range(2): #LE constraints
             def func(cst,index=it):
                 return self.radius(cst)[index]
             def jac(cst,index=it):
