@@ -15,10 +15,6 @@ class Optimization:
         self.iters = 0
         if not os.path.exists("Results"):
             os.mkdir("Results")
-            os.mkdir("Results/SLSQP")
-            os.mkdir("Results/TRUSTCR")
-            os.mkdir("Results/AUGLAG")
-            os.mkdir("Results/SINGLEPOINT")
     def update(self,cst):
         if np.all(self.solver.getValuesNp() == cst):
             pass
@@ -103,53 +99,95 @@ class Optimization:
         return df
 
     def slsqp(self, bounds): #bounds must be Bounds object
+        if os.path.exists("Results/SLSQP"):
+            os.remove("Results/SLSQP")
+        os.mkdir("Results/SLSQP")
         df = self.results_df(self.solver.getValuesNp())
-        df.to_csv("./Results/SLSQP/outdata.csv",mode='w')
+        df.to_csv("Results/SLSQP/outdata.csv",mode='w')
         def callback(cst):
             print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
             self.iters = self.iters + 1      
             df = self.results_df(cst)
-            df.to_csv("./Results/SLSQP/outdata.csv",header=False,mode='a')
-            shutil.copyfile("updated_airfoil.dat",f"./Results/SLSQP/airfoil_iter{self.iters}")
+            df.to_csv("Results/SLSQP/outdata.csv",header=False,mode='a')
+            shutil.copyfile("updated_airfoil.dat",f"Results/SLSQP/airfoil_iter{self.iters}")
 
         res = minimize(self.cd, self.solver.getValuesNp(), method = "SLSQP", jac=self.cd_grad,
-               constraints=self.constraints, tol=1e-6,
+               constraints=self.constraints, options={'ftol':1e-6},
                bounds=bounds,callback = callback)
     
     def trustcr(self,bounds):
-        def callback(cst, state):
-            self.log.append(cst)
-            print(f"Cl: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
-            #for con in self.constraints:
-                #print(cst)
-                #print(f"Constraint: {con['fun'](cst)}")    
+        if os.path.exists("Results/TRUSTCR"):
+            os.remove("Results/TRUSTCR")
+        os.mkdir("Results/TRUSTCR")
+        df = self.results_df(self.solver.getValuesNp())
+        df.to_csv("Results/TRUSTCR/outdata.csv",mode='w')
+        def callback(cst,state):
+            print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
+            self.iters = self.iters + 1      
+            df = self.results_df(cst)
+            df.to_csv("Results/TRUSTCR/outdata.csv",header=False,mode='a')
+            shutil.copyfile("updated_airfoil.dat",f"Results/TRUSTCR/airfoil_iter{self.iters}")
+
         res = minimize(self.cd, self.solver.getValuesNp(), method = "trust-constr", jac=self.cd_grad,
-            constraints=self.constraints, tol=1e-6,
-            bounds=bounds,callback = callback)
-    
-    def cobyqa(self,bounds):
-        def callback(cst):
-            print(f"Cl: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
-        res = minimize(self.cd, self.solver.getValuesNp(), method = "COBYQA",
-            constraints=self.constraints, tol=1e-6,
-            bounds=bounds,callback = callback)
-    
-    def aug_lagrange(self, bounds, max_iter=250):
-        muk = 0.01
+               constraints=self.constraints, options={'gtol':1e-4},
+               bounds=bounds,callback = callback)
+
+    def penalty(self, bounds, max_iter=250):
+        if os.path.exists("Results/PENALTY"):
+            os.remove("Results/PENALTY")
+        os.mkdir("Results/PENALTY")
+        muk = 10
         eta = 0.5
         rho = 2.
-        tauk = 1.
+        tauk = 1e-4
         
         cst0 = self.solver.getValuesNp()
         k = 0
-        
-        def Lagrange(x, lambdak, mu):
-            l = self.cd
-            
-            for i, c in enumerate(self.constraints):
-                l = l - lambdak[i] * c['fun'] + 0.5 * mu * max(0, -c['fun'])**2
-            
+        tau = 1
+        mu = .001
+        cd_val = 0
+        def Lagrange(cst, mu):
+            l = self.cd(cst)
+            for index,con in enumerate(self.constraints):
+                if con['type'] == "eq":
+                    l = l + 1/2 * mu * con['fun'](cst)**2
+                else:
+                    l = l + 1/2 * mu * max(0,-con['fun'](cst))**2
             return l
-        
-        while tauk > 1e-4 or muk <= 10:
-            pass
+        def gradLagrange(cst,mu):
+            lprime = self.cd_grad(cst)
+            for index,con in enumerate(self.constraints):
+                if con['type'] == "eq":
+                    lprime = lprime + mu * con['jac'](cst)*con['fun'](cst)
+                else:
+                    lprime = lprime - max(0,-con['fun'](cst)) * con['jac'](cst)
+
+            return lprime
+        while tau >= tauk and mu <= muk:
+
+            res = minimize(lambda cst: Lagrange(cst,mu),cst0,method="BFGS",jac=lambda cst: gradLagrange(cst,mu),
+                           options={"maxiter":120,"gtol":tau})
+            cst0 = res.x
+            if res.nit < 5:
+                tau = tau * eta / 5
+                mu = mu * rho * 5
+            elif res.nit < 15:
+                tau = tau * eta /2
+                mu = mu * rho * 2
+            else:
+                tau = tau * eta
+                mu = mu * rho
+            cd_val = res.fun
+            self.iters = self.iters + 1
+
+            print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst0)}")
+            self.iters = self.iters + 1      
+            df = self.results_df(cst0)
+            df.to_csv("Results/PENALTY/outdata.csv",header=False,mode='a')
+            shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY/airfoil_iter{self.iters}")
+        print(f"Cd:{self.cd(cst0)}")
+
+            
+
+
+
