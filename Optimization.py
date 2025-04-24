@@ -122,9 +122,11 @@ class Optimization:
     def trustcr(self,bounds):
         if os.path.exists("Results/TRUSTCR"):
             os.remove("Results/TRUSTCR")
+        
         os.mkdir("Results/TRUSTCR")
         df = self.results_df(self.solver.getValuesNp())
         df.to_csv("Results/TRUSTCR/outdata.csv",mode='w')
+        
         def callback(cst,state):
             print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
             self.iters = self.iters + 1      
@@ -136,62 +138,84 @@ class Optimization:
                constraints=self.constraints, options={'gtol':1e-4},
                bounds=bounds,callback = callback)
 
-    def penalty(self, bounds, max_iter=250):
+    def penalty(self, dfo=False, eta=0.5, rho=2., tau=1, mu=0.001, tau_min=1e-4, mu_max=10, max_iter=120):
         if os.path.exists("Results/PENALTY"):
             os.remove("Results/PENALTY")
         os.mkdir("Results/PENALTY")
-        muk = 10
-        eta = 0.5
-        rho = 2.
-        tauk = 1e-4
         
         cst0 = self.solver.getValuesNp()
-        k = 0
-        tau = 1
-        mu = .001
-        cd_val = 0
+        
         def Lagrange(cst, mu):
             l = self.cd(cst)
-            for index,con in enumerate(self.constraints):
+            for index, con in enumerate(self.constraints):
                 if con['type'] == "eq":
                     l = l + 1/2 * mu * con['fun'](cst)**2
                 else:
-                    l = l + 1/2 * mu * max(0,-con['fun'](cst))**2
+                    l = l + 1/2 * mu * max(0, -con['fun'](cst))**2
             return l
-        def gradLagrange(cst,mu):
-            lprime = self.cd_grad(cst)
-            for index,con in enumerate(self.constraints):
-                if con['type'] == "eq":
-                    lprime = lprime + mu * con['jac'](cst)*con['fun'](cst)
+        if dfo == False:
+            def gradLagrange(cst,mu):
+                lprime = self.cd_grad(cst)
+                
+                for index, con in enumerate(self.constraints):
+                    if con['type'] == "eq":
+                        lprime = lprime + mu * con['jac'](cst)*con['fun'](cst)
+                    else:
+                        lprime = lprime - max(0, -con['fun'](cst)) * con['jac'](cst)
+                
+                return lprime
+
+            while tau >= tau_min and mu <= mu_max:
+                res = minimize(lambda cst: Lagrange(cst, mu), cst0, method="BFGS", 
+                               jac=lambda cst: gradLagrange(cst, mu),
+                               options={"maxiter":max_iter, "gtol":tau})
+                
+                cst0 = res.x
+                if res.nit < 5:
+                    tau = tau * eta / 5
+                    mu = mu * rho * 5
+                elif res.nit < 15:
+                    tau = tau * eta /2
+                    mu = mu * rho * 2
                 else:
-                    lprime = lprime - max(0,-con['fun'](cst)) * con['jac'](cst)
+                    tau = tau * eta
+                    mu = mu * rho
+                
+                cd_val = res.fun
+                self.iters = self.iters + 1
 
-            return lprime
-        while tau >= tauk and mu <= muk:
+                print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst0)}")
+                
+                self.iters = self.iters + 1
+                
+                df = self.results_df(cst0)
+                df.to_csv("Results/PENALTY/outdata.csv",header=False,mode='a')
+                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY/airfoil_iter{self.iters}")
+        elif dfo == True:
+            while tau >= tau_min and mu <= mu_max:
+                res = minimize(lambda cst: Lagrange(cst,mu), cst0, method='Nelder-Mead',
+                               options={"maxiter":max_iter, "ftol":tau})
+                
+                cst0 = res.x
+                if res.nit < 5:
+                    tau = tau * eta / 5
+                    mu = mu * rho * 5
+                elif res.nit < 15:
+                    tau = tau * eta /2
+                    mu = mu * rho * 2
+                else:
+                    tau = tau * eta
+                    mu = mu * rho
+                
+                cd_val = res.fun
+                self.iters = self.iters + 1
 
-            res = minimize(lambda cst: Lagrange(cst,mu),cst0,method="BFGS",jac=lambda cst: gradLagrange(cst,mu),
-                           options={"maxiter":120,"gtol":tau})
-            cst0 = res.x
-            if res.nit < 5:
-                tau = tau * eta / 5
-                mu = mu * rho * 5
-            elif res.nit < 15:
-                tau = tau * eta /2
-                mu = mu * rho * 2
-            else:
-                tau = tau * eta
-                mu = mu * rho
-            cd_val = res.fun
-            self.iters = self.iters + 1
-
-            print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst0)}")
-            self.iters = self.iters + 1      
-            df = self.results_df(cst0)
-            df.to_csv("Results/PENALTY/outdata.csv",header=False,mode='a')
-            shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY/airfoil_iter{self.iters}")
-        print(f"Cd:{self.cd(cst0)}")
-
+                print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst0)}")
+                
+                self.iters = self.iters + 1
+                
+                df = self.results_df(cst0)
+                df.to_csv("Results/PENALTY/outdata.csv",header=False,mode='a')
+                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_Nelder/airfoil_iter{self.iters}")
             
-
-
-
+        print(f"Cd:{self.cd(cst0)}")
