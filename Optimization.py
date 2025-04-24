@@ -215,7 +215,7 @@ class Optimization:
                 self.iters = self.iters + 1
                 
                 df = self.results_df(cst0)
-                df.to_csv("Results/PENALTY/outdata.csv",header=False,mode='a')
-                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_Nelder/airfoil_iter{self.iters}")
+                df.to_csv("Results/DFO/outdata.csv",header=False,mode='a')
+                shutil.copyfile("updated_airfoil.dat",f"Results/DFO/airfoil_iter{self.iters}")
             
         print(f"Cd:{self.cd(cst0)}")
