@@ -32,4 +32,4 @@ def animate(folder):
         return airfoil
     anim = animation.FuncAnimation(fig,func=event,frames = np.arange(0,len(af_list)),interval = 1000)
     writergif = animation.PillowWriter(fps=4)
-    anim.save(f"Results/{folder}/slsqp.gif",writergif)
+    anim.save(f"Results/{folder}/animation.gif",writergif)
