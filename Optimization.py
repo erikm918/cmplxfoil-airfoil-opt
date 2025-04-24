@@ -1,5 +1,4 @@
-from traceback import print_stack
-from scipy.optimize import minimize
+from scipy.optimize import minimize, Bounds
 import numpy as np
 import pandas as pd
 import os
@@ -27,7 +26,8 @@ class Optimization:
             self.solver.findConstraint()
             self.solver.findConSens()
 
-    #Functions for getting cl, cd. All follow the same basic form: Updating, then grabbing the relevant data and returning it
+    #Functions for getting cl, cd. All follow the same basic form: Updating, then grabbing the 
+    # relevant data and returning it
     def cl(self,cst):
         self.update(cst)
         funcs = self.solver.funcs
@@ -104,12 +104,15 @@ class Optimization:
         df = pd.DataFrame(dict_results,index=[self.iters])
         return df
 
-    def slsqp(self, bounds): #bounds must be Bounds object
+    def slsqp(self, bounds:Bounds): #bounds must be Bounds object
         if os.path.exists("Results/SLSQP"):
             shutil.rmtree("Results/SLSQP")
         os.mkdir("Results/SLSQP")
+        
         df = self.results_df(self.solver.getValuesNp())
         df.to_csv("Results/SLSQP/outdata.csv",mode='w')
+        
+        # Callback function to update iterations and results files
         def callback(cst):
             print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst)}")
             self.iters = self.iters + 1      
@@ -117,14 +120,17 @@ class Optimization:
             df.to_csv("Results/SLSQP/outdata.csv",header=False,mode='a')
             shutil.copyfile("updated_airfoil.dat",f"Results/SLSQP/airfoil_iter{self.iters}")
 
+        # Optimziation of airfoil using scipy's SLSQP
         res = minimize(self.cd, self.solver.getValuesNp(), method = "SLSQP", jac=self.cd_grad,
                constraints=self.constraints, options={'ftol':1e-6},
                bounds=bounds,callback = callback)
 
-    def penalty(self, dfo=False, eta=0.5, rho=2., tau=1, mu=0.001, tau_min=1e-4, mu_max=10, max_iter=120):     
+    def penalty(self, dfo=False, eta=0.5, rho=2., tau=1, mu=0.001, tau_min=1e-4, mu_max=10, max_iter=120):    
+        # Get the starting CST coefficients from the solver 
         cst0 = self.solver.getValuesNp()
         
-        def Lagrange(cst, mu):
+        # Define the penalty function for all constraints
+        def Penalty(cst, mu):
             l = self.cd(cst)
             for index, con in enumerate(self.constraints):
                 if con['type'] == "eq":
@@ -132,13 +138,17 @@ class Optimization:
                 else:
                     l = l + 1/2 * mu * max(0, -con['fun'](cst))**2
             return l
+        
         if dfo == False:
             if os.path.exists("Results/PENALTY_GRAD"):
                 shutil.rmtree("Results/PENALTY_GRAD")
             os.mkdir("Results/PENALTY_GRAD")
+            
             df = self.results_df(cst0)
             df.to_csv("Results/PENALTY_GRAD/outdata.csv",mode='w')
-            def gradLagrange(cst,mu):
+            
+            # Create the gradient of the quadratic penalty function
+            def gradPenalty(cst,mu):
                 lprime = self.cd_grad(cst)
                 
                 for index, con in enumerate(self.constraints):
@@ -149,12 +159,16 @@ class Optimization:
                 
                 return lprime
 
+            # Optimization problem
             while tau >= tau_min and mu <= mu_max:
-                res = minimize(lambda cst: Lagrange(cst, mu), cst0, method="BFGS", 
-                               jac=lambda cst: gradLagrange(cst, mu),
+                # Optimization subproblem using BFGS
+                res = minimize(lambda cst: Penalty(cst, mu), cst0, method="BFGS", 
+                               jac=lambda cst: gradPenalty(cst, mu),
                                options={"maxiter":max_iter, "gtol":tau})
                 
                 cst0 = res.x
+                
+                # Update tau and mu based on additional parameters
                 if res.nit < 5:
                     tau = tau * eta / 5
                     mu = mu * rho * 5
@@ -166,9 +180,12 @@ class Optimization:
                     mu = mu * rho
                 
                 cd_val = res.fun
+                # Update iteration
                 self.iters = self.iters + 1
+                
                 print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst0)}")
-                               
+                
+                # Update output files
                 df = self.results_df(cst0)
                 df.to_csv("Results/PENALTY_GRAD/outdata.csv",header=False,mode='a')
                 shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_GRAD/airfoil_iter{self.iters}")
@@ -176,12 +193,20 @@ class Optimization:
             if os.path.exists("Results/PENALTY_DFO"):
                 shutil.rmtree("Results/PENALTY_DFO")
             os.mkdir("Results/PENALTY_DFO")
+            
             df = self.results_df(cst0)
             df.to_csv("Results/PENALTY_DFO/outdata.csv",mode='w')
+            
+            # Optimization problem
             while tau >= tau_min and mu <= mu_max:
-                res = minimize(lambda cst: Lagrange(cst,mu), cst0, method='Nelder-Mead',
+                # Subproblem using scipy's Nelder Mead method
+                res = minimize(lambda cst: Penalty(cst,mu), cst0, method='Nelder-Mead',
                                options={"maxiter":max_iter, "ftol":tau})
+                
+                # new value for CST coefficients
                 cst0 = res.x
+                
+                # Update values for tau, mu based on additioanl parameters
                 if res.nit < 5:
                     tau = tau * eta / 5
                     mu = mu * rho * 5
@@ -192,11 +217,15 @@ class Optimization:
                     tau = tau * eta
                     mu = mu * rho
                 
+                # Update iterations
                 cd_val = res.fun
                 self.iters = self.iters + 1
+                
                 print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst0)}")
-                                
+                
+                # Update output file
                 df = self.results_df(cst0)
                 df.to_csv("Results/PENALTY_DFO/outdata.csv",header=False,mode='a')
-                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_DFO/airfoil_iter{self.iters}")   
+                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_DFO/airfoil_iter{self.iters}") 
+            
         print(f"Cd:{self.cd(cst0)}")

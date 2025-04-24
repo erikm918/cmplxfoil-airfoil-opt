@@ -1,5 +1,28 @@
 # Low Reynolds Number Airfoil Optimization
 
+## Running the Optimizaiton
+
+### Dependencies
+
+To run the code the following packages must be installed:
+- NumPy
+- SciPy
+- Matplotlib
+- pyGeo
+Or simply use the Docker image described in [Docker Image](#docker-image). 
+
+### Running
+
+Python's argparser is used to allow optimizer selection when calling the script from the command line. The options for optimizer are: SLSQP, penalty method using BFGS, and penalty method using Nelder-Mead for DFO optimziation. To run the optimization, run the following command: 
+```
+python3 main.py -opt <optimizer>
+```
+
+Here, optimizer can be:
+- `slsqp`
+- `penalty_grad`
+- `penalty_dfo`
+
 ## Docker Image
 
 1. Install Docker: <br>
