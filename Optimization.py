@@ -96,11 +96,27 @@ class Optimization:
                 return self.radius_grad(cst)[index,:]
             self.add_con(func,jac,'ineq')
 
-    def results_df(self,cst):
-        cl = self.cl(cst)
-        cd = self.cd(cst)
-
-        dict_results = {"Cl": cl,"Cd": cd}
+    def results_df(self,cst,dfo=False,penaltyFuncs = None,mu = None): #Penalty funcs = [penalty, gradpenalty]. If dfo, just [penalty]
+        if penaltyFuncs == None:
+            cl = self.cl(cst)
+            cd = self.cd(cst)
+            if dfo:
+                dict_results = {"Cl": cl,"Cd": cd}
+            else:
+                cd_gradnorm = np.linalg.norm(self.cd_grad(cst),np.inf)
+                dict_results = {"Cl": cl,"Cd": cd,"Gradnorm":cd_gradnorm}
+        else:
+            cl = self.cl(cst)
+            cd = self.cd(cst)
+            penalty = penaltyFuncs[0]
+            if dfo:
+                pen = penalty(cst,mu)
+                dict_results = {"Cl": cl,"Cd": cd,"Penalty":pen}
+            else:
+                grad = penaltyFuncs[1]
+                pen = penalty(cst,mu)
+                gradnorm = np.linalg.norm(grad(cst,mu),np.inf)
+                dict_results = {"Cl": cl,"Cd": cd,"Penalty":pen,"Gradnorm":gradnorm}
         df = pd.DataFrame(dict_results,index=[self.iters])
         return df
 
@@ -128,7 +144,7 @@ class Optimization:
     def penalty(self, dfo=False, eta=0.5, rho=2., tau=1, mu=0.001, tau_min=1e-4, mu_max=10, max_iter=120):    
         # Get the starting CST coefficients from the solver 
         cst0 = self.solver.getValuesNp()
-        
+        self.subiters = 0;
         # Define the penalty function for all constraints
         def Penalty(cst, mu):
             l = self.cd(cst)
@@ -143,10 +159,7 @@ class Optimization:
             if os.path.exists("Results/PENALTY_GRAD"):
                 shutil.rmtree("Results/PENALTY_GRAD")
             os.mkdir("Results/PENALTY_GRAD")
-            
-            df = self.results_df(cst0)
-            df.to_csv("Results/PENALTY_GRAD/outdata.csv",mode='w')
-            
+           
             # Create the gradient of the quadratic penalty function
             def gradPenalty(cst,mu):
                 lprime = self.cd_grad(cst)
@@ -158,13 +171,19 @@ class Optimization:
                         lprime = lprime - max(0, -con['fun'](cst)) * con['jac'](cst)
                 
                 return lprime
-
+            df = self.results_df(cst0,penaltyFuncs=[Penalty,gradPenalty],mu=mu)
+            df.to_csv("Results/PENALTY_GRAD/outdata.csv",mode='w')
+            def callback(cst):
+                self.subiters = self.subiters + 1
+                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_GRAD/airfoil_sub{self.iters}_iter{self.subiters}")
             # Optimization problem
             while tau >= tau_min and mu <= mu_max:
+                
                 # Optimization subproblem using BFGS
+                self.subiters = 0
                 res = minimize(lambda cst: Penalty(cst, mu), cst0, method="BFGS", 
                                jac=lambda cst: gradPenalty(cst, mu),
-                               options={"maxiter":max_iter, "gtol":tau})
+                               options={"maxiter":max_iter, "gtol":tau},callback=callback)
                 
                 cst0 = res.x
                 
@@ -186,22 +205,24 @@ class Optimization:
                 print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst0)}")
                 
                 # Update output files
-                df = self.results_df(cst0)
+                df = self.results_df(cst0,penaltyFuncs=[Penalty,gradPenalty],mu=mu)
                 df.to_csv("Results/PENALTY_GRAD/outdata.csv",header=False,mode='a')
-                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_GRAD/airfoil_iter{self.iters}")
         elif dfo == True:
             if os.path.exists("Results/PENALTY_DFO"):
                 shutil.rmtree("Results/PENALTY_DFO")
             os.mkdir("Results/PENALTY_DFO")
             
-            df = self.results_df(cst0)
+            df = self.results_df(cst0,dfo=True,penaltyFuncs=[Penalty],mu=mu)
             df.to_csv("Results/PENALTY_DFO/outdata.csv",mode='w')
-            
+            def callback(cst):
+                self.subiters = self.subiters + 1
+                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_GRAD/airfoil_sub{self.iters}_iter{self.subiters}")
             # Optimization problem
             while tau >= tau_min and mu <= mu_max:
                 # Subproblem using scipy's Nelder Mead method
+                self.subiters = 0
                 res = minimize(lambda cst: Penalty(cst,mu), cst0, method='Nelder-Mead',
-                               options={"maxiter":max_iter, "ftol":tau})
+                               options={"maxiter":max_iter, "ftol":tau},callback=callback)
                 
                 # new value for CST coefficients
                 cst0 = res.x
@@ -224,8 +245,7 @@ class Optimization:
                 print(f"Cl constraint: {self.constraints[len(self.constraints)-1]['fun'](cst0)}")
                 
                 # Update output file
-                df = self.results_df(cst0)
+                df = self.results_df(cst0,dfo=True,penaltyFuncs=[Penalty],mu=mu)
                 df.to_csv("Results/PENALTY_DFO/outdata.csv",header=False,mode='a')
-                shutil.copyfile("updated_airfoil.dat",f"Results/PENALTY_DFO/airfoil_iter{self.iters}") 
             
         print(f"Cd:{self.cd(cst0)}")

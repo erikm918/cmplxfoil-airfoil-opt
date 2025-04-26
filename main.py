@@ -24,16 +24,15 @@ cl_const = lambda cst: op_problem.cl(cst) - mycl #0 = clfunc - mycl. This is eq
 op_problem.add_con(cl_const,lambda cst: op_problem.cl_grad(cst),"eq")
 # Problem bounds for slsqp
 bounds = Bounds([-.1,-.1,-.1,-.1,-.5,-.5,-.5,-.5],[.5,.5,.5,.5,.1,.1,.1,.1])
-
 if args.opt == 'slsqp':
     op_problem.slsqp(bounds=bounds)
-    animation.animate('SLSQP')
+    animation.animate('SLSQP',4)
 elif args.opt == 'penalty_grad':
     op_problem.penalty()
-    animation.animate("PENALTY_GRAD")
+    animation.animate("PENALTY_GRAD",4)
 elif args.opt == 'penalty_dfo':
     op_problem.penalty(dfo=True)
-    animation.animate("PENALTY_DFO")
+    animation.animate("PENALTY_DFO",4)
 else:
     print('\n#############################################\n')
     print('Optimization option not found, quitting.')
