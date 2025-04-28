@@ -18,7 +18,7 @@ plt.xlim([-0.1, 1.3])
 plt.ylim([-0.07, 0.07])
 plt.xlabel('x / c')
 plt.ylabel('y / c')
-plt.show()
+plt.savefig('images/slsqp.png')
 
 # Penalty method with BFGS vs. NACA0012
 plt.figure(figsize=(8, 2))
@@ -29,7 +29,7 @@ plt.xlim([-0.1, 1.3])
 plt.ylim([-0.07, 0.07])
 plt.xlabel('x / c')
 plt.ylabel('y / c')
-plt.show()
+plt.savefig('images/slsqp.png')
 
 # Penalty method with Nelder-Mead vs. NACA0012
 plt.figure(figsize=(8, 2))
@@ -40,7 +40,7 @@ plt.xlim([-0.1, 1.5])
 plt.ylim([-0.07, 0.07])
 plt.xlabel('x / c')
 plt.ylabel('y / c')
-plt.show()
+plt.savefig('images/nelder.png')
 
 # Our optimziation methods vs. optimization example given by CMPLXFOIL
 plt.figure(figsize=(8, 2))
@@ -51,4 +51,4 @@ plt.xlim([-0.1, 1.5])
 plt.ylim([-0.07, 0.07])
 plt.xlabel('x / c')
 plt.ylabel('y / c')
-plt.show()
+plt.savefig('images/comparison.png')
