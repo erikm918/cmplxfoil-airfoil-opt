@@ -11,6 +11,7 @@ To run the code the following packages must be installed:
 - pyGeo
 - shutil
 - pandas
+
 Or simply use the Docker image described in [Docker Image](#docker-image). 
 
 ### Running
