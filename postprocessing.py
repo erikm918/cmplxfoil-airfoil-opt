@@ -29,7 +29,7 @@ plt.xlim([-0.1, 1.3])
 plt.ylim([-0.07, 0.07])
 plt.xlabel('x / c')
 plt.ylabel('y / c')
-plt.savefig('images/slsqp.png')
+plt.savefig('images/bfgs.png')
 
 # Penalty method with Nelder-Mead vs. NACA0012
 plt.figure(figsize=(8, 2))
