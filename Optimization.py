@@ -222,7 +222,7 @@ class Optimization:
                 self.iters = self.iters + 1
                 self.sub_iters = 0
                 res = minimize(lambda cst: Penalty(cst,mu), cst0, method='Nelder-Mead',
-                               options={"maxiter":max_iter, "fatol":tau},callback=callback)
+                               options={"maxiter":max_iter, "fatol":tau, 'xatol':7.5e-3},callback=callback)
 
                 # new value for CST coefficients
                 cst0 = res.x
