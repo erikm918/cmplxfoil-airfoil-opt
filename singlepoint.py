@@ -10,7 +10,6 @@ from pygeo import DVConstraints, DVGeometryCST
 from pyoptsparse import Optimization, OPT
 from multipoint import multiPointSparse
 from cmplxfoil import CMPLXFOIL, AnimateAirfoilOpt
-import AeroSolver as AS
 
 # rst imports (end)
 
@@ -19,12 +18,10 @@ import AeroSolver as AS
 # ======================================================================
 # rst params (beg)
 mycl = 0.5  # lift coefficient constraint
-alpha = 3.0  # initial angle of attack (zero if the target cl is zero)
+alpha = 3 # initial angle of attack (zero if the target cl is zero)
 mach = 0.06  # Mach number
-Re = 200000.  # Reynolds number
+Re = 200000  # Reynolds number
 T = 288.15  # 1976 US Standard Atmosphere temperature @ sea level (K)
-
-solver = AS.AeroSolver("naca0012.dat",Re,alpha,mycl)
 # rst params (end)
 
 # ======================================================================
@@ -34,23 +31,84 @@ solver = AS.AeroSolver("naca0012.dat",Re,alpha,mycl)
 MP = multiPointSparse(MPI.COMM_WORLD)
 MP.addProcessorSet("cruise", nMembers=1, memberSizes=MPI.COMM_WORLD.size)
 MP.createCommunicators()
+# rst procs (end)
 
+# ======================================================================
+#         Create output directory
+# ======================================================================
+# rst dir (beg)
+curDir = os.path.abspath(os.path.dirname(__file__))
+outputDir = os.path.join(curDir, "output")
+
+if not os.path.exists(outputDir):
+    os.mkdir(outputDir)
+# rst dir (end)
+
+# ======================================================================
+#         CFD solver set-up
+# ======================================================================
+# rst solver (beg)
+aeroOptions = {
+    "writeSolution": True,
+    "writeSliceFile": True,
+    "writeCoordinates": True,
+    "plotAirfoil": True,
+    "outputDirectory": outputDir,
+}
+
+# Create solver
+CFDSolver = CMPLXFOIL(os.path.join(curDir, "naca0012.dat"), options=aeroOptions)
+# rst solver (end)
+
+# ======================================================================
+#         Set up flow conditions with AeroProblem
+# ======================================================================
+# rst ap (beg)
+ap = AeroProblem(
+    name="fc",
+    alpha=alpha if mycl != 0.0 else 0.0,
+    mach=mach,
+    reynolds=Re,
+    reynoldsLength=1.0,
+    T=T,
+    areaRef=1.0,
+    chordRef=1.0,
+    evalFuncs=["cl", "cd"],
+)
+
+# ======================================================================
+#         Geometric Design Variable Set-up
+# ======================================================================
+# rst geom (beg)
+nCoeff = 4  # number of CST coefficients on each surface
+DVGeo = DVGeometryCST(os.path.join(curDir, "naca0012.dat"), numCST=nCoeff)
+
+DVGeo.addDV("upper_shape", dvType="upper", lowerBound=-0.1, upperBound=0.5)
+DVGeo.addDV("lower_shape", dvType="lower", lowerBound=-0.5, upperBound=0.1)
+
+# Add DVGeo object to CFD solver
+CFDSolver.setDVGeo(DVGeo)
+# rst geom (end)
+
+# ======================================================================
+#         DVConstraint Setup
+# ======================================================================
+# rst cons (beg)
 DVCon = DVConstraints()
-DVCon.setDVGeo(solver.dvGeo)
-DVCon.setSurface(solver.CFDSolver.getTriangulatedMeshSurface())
+DVCon.setDVGeo(DVGeo)
+DVCon.setSurface(CFDSolver.getTriangulatedMeshSurface())
 
 # Thickness, volume, and leading edge radius constraints
 le = 0.0001
 wingtipSpacing = 0.1
 leList = [[le, 0, wingtipSpacing], [le, 0, 1.0 - wingtipSpacing]]
 teList = [[1.0 - le, 0, wingtipSpacing], [1.0 - le, 0, 1.0 - wingtipSpacing]]
-DVCon.addVolumeConstraint(leList, teList, 2, 100, lower=0.85, scaled=True)
-DVCon.addThicknessConstraints2D(leList, teList, 2, 100, lower=0.1, scaled=True)
+DVCon.addThicknessConstraints2D(leList, teList, 2, 100, lower=0.25, scaled=True)
 le = 0.01
 leList = [[le, 0, wingtipSpacing], [le, 0, 1.0 - wingtipSpacing]]
-DVCon.addLERadiusConstraints(leList, 2, axis=[0, 1, 0], chordDir=[-1, 0, 0], lower=0.85, scaled=True)
+DVCon.addLERadiusConstraints(leList, 2, axis=[0, 1, 0], chordDir=[-1, 0, 0], lower=0.75, scaled=True)
 
-fileName = os.path.join(solver.output_dir, "constraints.dat")
+fileName = os.path.join(outputDir, "constraints.dat")
 DVCon.writeTecplot(fileName)
 # rst cons (end)
 
@@ -62,15 +120,15 @@ DVCon.writeTecplot(fileName)
 def cruiseFuncs(x):
     print(x)
     # Set design vars
-    solver.CFDSolver.DVGeo.setDesignVars(x)
-    solver.aero_problem.setDesignVars(x)
+    DVGeo.setDesignVars(x)
+    ap.setDesignVars(x)
     # Run CFD
-    solver.CFDSolver(solver.aero_problem)
+    CFDSolver(ap)
     # Evaluate functions
     funcs = {}
     DVCon.evalFunctions(funcs)
-    solver.CFDSolver.evalFunctions(solver.aero_problem, funcs)
-    solver.CFDSolver.checkSolutionFailure(solver.aero_problem, funcs)
+    CFDSolver.evalFunctions(ap, funcs)
+    CFDSolver.checkSolutionFailure(ap, funcs)
     if MPI.COMM_WORLD.rank == 0:
         print("functions:")
         for key, val in funcs.items():
@@ -83,8 +141,8 @@ def cruiseFuncs(x):
 def cruiseFuncsSens(x, funcs):
     funcsSens = {}
     DVCon.evalFunctionsSens(funcsSens)
-    solver.CFDSolver.evalFunctionsSens(solver.aero_problem, funcsSens)
-    solver.CFDSolver.checkAdjointFailure(solver.aero_problem, funcsSens)
+    CFDSolver.evalFunctionsSens(ap, funcsSens)
+    CFDSolver.checkAdjointFailure(ap, funcsSens)
     print("function sensitivities:")
     evalFunc = ["fc_cd", "fc_cl", "fail"]
     for var in evalFunc:
@@ -94,13 +152,12 @@ def cruiseFuncsSens(x, funcs):
 
 def objCon(funcs, printOK):
     # Assemble the objective and any additional constraints:
-    funcs["obj"] = funcs[solver.aero_problem["cd"]]
-    funcs["cl_con_" + solver.aero_problem.name] = funcs[solver.aero_problem["cl"]] - mycl
+    funcs["obj"] = funcs[ap["cd"]]
+    funcs["cl_con_" + ap.name] = funcs[ap["cl"]] - mycl
     if printOK:
         print("funcs in obj:", funcs)
-    
-    print(f"CST Coefficients: {solver.dvGeo.getValues()}")
     return funcs
+
 
 # rst funcs (end)
 
@@ -115,20 +172,20 @@ optProb = Optimization("opt", MP.obj)
 optProb.addObj("obj", scale=1e4)
 
 # Add variables from the AeroProblem
-solver.aero_problem.addVariablesPyOpt(optProb)
+ap.addVariablesPyOpt(optProb)
 
 # Add DVGeo variables
-solver.dvGeo.addVariablesPyOpt(optProb)
+DVGeo.addVariablesPyOpt(optProb)
 
 # Add constraints
 DVCon.addConstraintsPyOpt(optProb)
 
 # Add cl constraint
-optProb.addCon("cl_con_" + solver.aero_problem.name, lower=0.0, upper=0.0, scale=1.0)
+optProb.addCon("cl_con_" + ap.name, lower=0.0, upper=0.0, scale=1.0)
 
 # Enforce first upper and lower CST coefficients to add to zero
 # to maintain continuity at the leading edge
-jac = np.zeros((1, solver.nCoeff), dtype=float)
+jac = np.zeros((1, nCoeff), dtype=float)
 jac[0, 0] = 1.0
 optProb.addCon(
     "first_cst_coeff_match",
@@ -151,9 +208,9 @@ optProb.getDVConIndex()
 
 # rst opt (beg)
 # Run optimization
-optOptions = {"IFILE": os.path.join(solver.output_dir, "SLSQP.out")}
+optOptions = {"IFILE": os.path.join(outputDir, "SLSQP.out")}
 opt = OPT("SLSQP", options=optOptions)
-sol = opt(optProb, MP.sens, storeHistory=os.path.join(solver.output_dir, "opt.hst"))
+sol = opt(optProb, MP.sens, storeHistory=os.path.join(outputDir, "opt.hst"))
 if MPI.COMM_WORLD.rank == 0:
     print(sol)
 # rst opt (end)
@@ -163,11 +220,11 @@ if MPI.COMM_WORLD.rank == 0:
 # ======================================================================
 # rst postprocessing (beg)
 # Save the final figure
-solver.CFDSolver.airfoilAxs[1].legend(["Original", "Optimized"], labelcolor="linecolor")
-solver.CFDSolver.airfoilFig.savefig(os.path.join(solver.output_dir, "OptFoil.pdf"))
+CFDSolver.airfoilAxs[1].legend(["Original", "Optimized"], labelcolor="linecolor")
+CFDSolver.airfoilFig.savefig(os.path.join(outputDir, "OptFoil.pdf"))
 
-# # Animate the optimization
-AnimateAirfoilOpt(solver.output_dir, "fc").animate(
-    outputFileName=os.path.join(solver.output_dir, "OptFoil"), fps=10, dpi=300, extra_args=["-vcodec", "libx264"]
+# Animate the optimization
+AnimateAirfoilOpt(outputDir, "fc").animate(
+    outputFileName=os.path.join(outputDir, "OptFoil"), fps=10, dpi=300, extra_args=["-vcodec", "libx264"]
 )
 # rst postprocessing (end)

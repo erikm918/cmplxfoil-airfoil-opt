@@ -29,7 +29,7 @@ if args.opt == 'slsqp':
 elif args.opt == 'penalty_grad':
     op_problem.penalty()
 elif args.opt == 'penalty_dfo':
-    op_problem.penalty(dfo=True, max_iter=30, tau_min=1e-3)
+    op_problem.penalty(dfo=True, max_iter=20, tau_min=1e-3)
 else:
     print('\n#############################################\n')
     print('Optimization option not found, quitting.')
