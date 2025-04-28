@@ -1,11 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import animation
+import os
+import pandas as pd
 
 airfoil = np.loadtxt('naca0012.dat')
 # Make sure to change the file name when rerunning the optimization
 slsqp = np.loadtxt('Results/SLSQP/airfoil_iter32')
-pen_grad = np.loadtxt('Results/PENALTY_GRAD/airfoil_sub4iter14')
+pen_grad = np.loadtxt('Results/PENALTY_GRAD/airfoil_sub6iter3')
 pen_dfo = np.loadtxt('Results/PENALTY_DFO/airfoil_sub10iter4')
 single = np.loadtxt('output/fc_039.dat')
 
@@ -52,3 +54,75 @@ plt.ylim([-0.07, 0.07])
 plt.xlabel('x / c')
 plt.ylabel('y / c')
 plt.savefig('images/comparison.png')
+
+folders = os.listdir(f"Results")
+cl_full = []
+cl_iters = []
+cl_leg = []
+cd_full = []
+cd_iters = []
+cd_leg = []
+grad_full = []
+grad_iters = []
+grad_leg = []
+penalties = []
+pen_iters = []
+pen_leg = []
+for folder in folders:
+    path = f"Results/{folder}/outdata.csv"
+    df = pd.read_csv(path)
+    cl_full.append(df['Cl'].to_numpy()-.5)
+    cl_iters.append(df.index.to_numpy())
+    cl_leg.append(folder)
+    cd_full.append(df['Cd'].to_numpy())
+    cd_iters.append(df.index.to_numpy())
+    cd_leg.append(folder)
+    try: 
+        grad_full.append(df['gradnorm'].to_numpy())
+        grad_leg.append(folder)
+        grad_iters.append(df.index.to_numpy())
+    except:
+        pass
+    try: 
+        penalties.append(df['Penalty'].to_numpy())
+        pen_leg.append(folder)
+        pen_iters.append(df.index.to_numpy())
+    except:
+        pass
+plt.figure()
+for x in range(len(cl_full)):
+    plt.plot(cl_iters[x],cl_full[x])
+plt.legend(cl_leg)
+plt.xlabel("Iterations/Subproblems")
+plt.ylabel("Cl Violation")
+plt.title("Cl Violation vs Iterations/Subproblems")
+plt.savefig("images/cl.png")
+plt.figure()
+for x in range(len(cd_full)):
+    plt.plot(cd_iters[x],cd_full[x])
+plt.legend(cd_leg)
+plt.xlabel("Iterations/Subproblems")
+plt.ylabel("Cd")
+plt.title("Cd vs Iterations/Subproblems")
+plt.savefig("images/cd.png")
+plt.figure()
+for x in range(len(penalties)):
+    plt.plot(pen_iters[x],penalties[x])
+plt.legend(pen_leg)
+plt.xlabel("Subproblems")
+plt.ylabel("Penalty Value")
+plt.title("Penalty Value vs Subproblems")
+plt.savefig("images/penalty.png")
+plt.figure()
+for x in range(len(grad_full)):
+    plt.plot(grad_iters[x],grad_full[x])
+plt.legend(grad_leg)
+plt.xlabel("Iterations/Subproblems")
+plt.ylabel("Gradient Norm of Cd/Penalty")
+plt.title("Gradient Norm of Cd/Penalty")
+plt.savefig("images/gradient.png")
+
+
+animation.animate("PENALTY_DFO",fps=10)
+animation.animate("PENALTY_GRAD",fps=3)
+animation.animate("PENALTY_DFO",fps=2)

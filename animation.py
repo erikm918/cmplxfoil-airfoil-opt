@@ -17,8 +17,11 @@ def animate(folder,fps):
     else:
         key = lambda string: int(re.findall(r"\d+",string)[0])
     fig = plt.figure()
+    original = "naca0012.dat"
+    original_data = np.loadtxt(original)
     ax = plt.axes(xlim=(0,1),ylim=(-.1,.1))
     airfoil, = ax.plot([],[])
+    origfoil, = ax.plot([],[],color = "black",alpha=.4)
     af_list = []
     iterdata = []
     files.sort(key=key)
@@ -27,13 +30,14 @@ def animate(folder,fps):
         iterdata.append(re.findall(r"\d+",file))
         af_list.append(outdata)
     def init(): 
-        original = "naca0012.dat"
-        outdata = np.loadtxt(original)
+        origfoil.set_data(original_data[:,0],original_data[:,1])
         airfoil.set_data(outdata[:,0], outdata[:,1]) 
-        ax.set_title(folder)
+        fig.suptitle(folder)
         return airfoil, 
     def event(frame):
         data = af_list[frame]
+        fig.suptitle(folder)
+        origfoil.set_data(original_data[:,0],original_data[:,1])
         airfoil.set_data(data[:,0],data[:,1])
         iteration = iterdata[frame]
         if "PENALTY" in folder:
@@ -49,5 +53,5 @@ def animate(folder,fps):
     writergif = animation.PillowWriter(fps=fps)
     anim.save(f"Results/{folder}/animation.gif",writergif)
 
-#animate("PENALTY_DFO",fps=10)
+animate("PENALTY_DFO",fps=10)
 
