@@ -37,11 +37,17 @@ def animate(folder,fps):
         airfoil.set_data(data[:,0],data[:,1])
         iteration = iterdata[frame]
         if "PENALTY" in folder:
+            if ax.get_legend():
+                ax.get_legend().remove()
             fig.legend([f"Subproblem {iteration[0]}, iter:{iteration[1]}"])
         else:
+            if ax.get_legend():
+                ax.get_legend().remove()
             fig.legend([f"Iteration {iteration[0]}"])
         return airfoil
     anim = animation.FuncAnimation(fig,func=event,frames = np.arange(0,len(af_list)),interval = 1000)
     writergif = animation.PillowWriter(fps=fps)
     anim.save(f"Results/{folder}/animation.gif",writergif)
+
+#animate("PENALTY_DFO",fps=10)
 
