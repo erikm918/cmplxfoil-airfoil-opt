@@ -52,6 +52,3 @@ def animate(folder,fps):
     anim = animation.FuncAnimation(fig,func=event,frames = np.arange(0,len(af_list)),interval = 1000)
     writergif = animation.PillowWriter(fps=fps)
     anim.save(f"Results/{folder}/animation.gif",writergif)
-
-animate("PENALTY_DFO",fps=10)
-
