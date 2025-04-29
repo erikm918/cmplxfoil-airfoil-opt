@@ -4,6 +4,8 @@ import animation
 import os
 import pandas as pd
 
+if not os.path.exists("images"):
+    os.mkdir*("images")
 airfoil = np.loadtxt('naca0012.dat')
 # Make sure to change the file name when rerunning the optimization
 slsqp = np.loadtxt('Results/SLSQP/airfoil_iter32')
